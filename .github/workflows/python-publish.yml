@@ -23,11 +23,12 @@ jobs:
         uses: abatilo/actions-poetry@v2
         with:
           poetry-version: ${{ matrix.poetry-version }}
-        run: |
-          poetry build
       - name: Run image
         uses: abatilo/actions-poetry@v2
         with:
           poetry-version: ${{ matrix.poetry-version }}
+      - name: build
+        run: |
+          poetry build
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
