@@ -12,7 +12,7 @@ A text editor for twentieth century computing. Built with Python and Textual.
 © Copyright 2023 Ken Kinder {email} {site}
 
 """.format(
-    version="0.1.0",
+    version="0.1.1",
     author="Ken Kinder",
     email="ken@kkinder.com",
     site="kkinder.com"
