@@ -10,6 +10,7 @@ SHORTCUTS = """
 | Action | Shortcut |
 | ------ | -------- |
 | Menu | {menu} |
+| Command Palette | ctrl+\ |
 | Open File | {open_file} |
 | Show Shortcuts | {show_shortcuts} |
 | Quit | {quit} |
