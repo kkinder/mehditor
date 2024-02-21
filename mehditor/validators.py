@@ -14,5 +14,5 @@ class LineNumber(Validator):
         else:
             return ValidationResult.failure([LineNumber.NotALineNumber(self, value)])
 
-    def describe_failure(self, failure: Failure) -> str | None:
+    def describe_failure(self, failure: Failure):
         return "Must be a line number (with optional column); eg 10:3 for line 10, col 3"
