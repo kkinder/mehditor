@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mehditor"
-version = "0.1.1"
+version = "0.1.5"
 description = "A text editor for twentieth century computing."
 authors = ["Ken Kinder <ken+github@kkinder.com>"]
 license = "MIT"
@@ -8,10 +8,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-textual = { extras = ["syntax"], version = "^0.39.0" }
+textual = {extras = ["syntax"], version = "^0.52.1"}
 
 [tool.poetry.group.dev.dependencies]
-textual-dev = "^1.2.1"
+textual-dev = "^1.5.1"
 
 [build-system]
 requires = ["poetry-core"]

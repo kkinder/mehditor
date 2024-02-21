@@ -14,8 +14,9 @@ DEFAULT_SETTINGS = {
         "cut": "f2",
         "copy": "f3",
         "paste": "f4",
-        "undo_change": "f8",
-        "redo_change": "f9",
+        "undo_change": "ctrl+z",
+        "redo_change": "ctrl+y",
+        "suspend_process": "f9"
     },
     "filetypes": {
         "css": "css",
@@ -38,25 +39,32 @@ DEFAULT_SETTINGS = {
         "theme": "dracula",
         "dark_mode": True,
         "show_line_numbers": True,
+        "soft_wrap": False
     }
 }
 
 PRIORITY_SHORTCUTS = ["menu", "quit"]
-SHOW_SHORTCUTS = ["menu", "show_shortcuts", "cut", "copy", "paste", "undo_change", "redo_change"]
+SHOW_SHORTCUTS = ["menu", "show_shortcuts", "cut", "copy", "paste"]
 SHORTCUT_ALTS = {
     "escape": "Esc",
 }
-SHORTCUT_ITEM_NAME_OVERRIDES = {}
+SHORTCUT_ITEM_NAME_OVERRIDES = {
+    "undo_change": "Undo",
+    "redo_change": "Redo"
+}
 settings = configparser.ConfigParser()
 settings.read_dict(DEFAULT_SETTINGS)
 
 
-def generate_binding(item):
+def generate_binding(item, show=None):
     from textual.binding import Binding
     name = SHORTCUT_ITEM_NAME_OVERRIDES.get(item, item.replace('_', ' ').title())
 
-    return Binding(settings["shortcuts"][item], item, name, show=item in SHOW_SHORTCUTS,
-                   priority=item in PRIORITY_SHORTCUTS, key_display=shortcut_alts(item))
+    if show is None:
+        show = item in SHOW_SHORTCUTS
+
+    return Binding(settings["shortcuts"][item], item, name, show=show, priority=item in PRIORITY_SHORTCUTS,
+                   key_display=shortcut_alts(item))
 
 
 def shortcut_alts(item):

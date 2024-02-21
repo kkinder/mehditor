@@ -15,7 +15,7 @@ but wanted a more modern and friendly itnerface. Meditor is written in Python an
 - Put that VGA graphics card to use with astonishing _color_ (light and dark modes!)
 - Mouse support
 - Modern-ish user interface with command palette and menus
-- Undo/redo support
+- Undo/redo support (now updated with Textual's new undo/redo)
 - Sensible keyboard shortcuts that work well over ssh, tmux, etc
 - Syntax highlighting for Python, SQL, and more
 - Easy installation via pip -- no root needed

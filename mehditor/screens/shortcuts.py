@@ -14,6 +14,7 @@ SHORTCUTS = """
 | Open File | {open_file} |
 | Show Shortcuts | {show_shortcuts} |
 | Quit | {quit} |
+| Suspend | {suspend_process} |
 | |
 | New File | {new_file} |
 | Open File | {open_file} |

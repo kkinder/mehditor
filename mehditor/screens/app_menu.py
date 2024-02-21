@@ -5,9 +5,10 @@ from textual import events, on
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, Container
 from textual.screen import ModalScreen
-from textual.widgets import Footer, TabbedContent, TabPane, OptionList, Tabs, Label, Button, Static
+from textual.widgets import Footer, TabbedContent, TabPane, OptionList, Tabs, Label, Button, Static, Markdown, Header
+from textual.widgets._tabbed_content import ContentTabs
 from textual.widgets.option_list import Separator, Option
-
+from mehditor import config
 
 class AppMenu(ModalScreen):
     CSS = """
@@ -19,13 +20,30 @@ class AppMenu(ModalScreen):
         width: 80%;
         height: 70%;
         border: thick $background 80%;
-        background: $surface;
+        background: $panel-darken-1;
         padding: 0
     }
     
     TabbedContent {
         padding: 0;
-        height: auto;
+        height: 100%;
+    }
+    
+    TabPane {
+        padding: 0;
+        height: 100%;
+        background: $panel;
+    }
+    
+    ContentSwitcher {
+        padding: 0;
+        height: 100%;
+        background: $panel;
+    }
+    
+    OptionList {
+        border: none;
+        background: $panel;
     }
     
     Button {
@@ -53,10 +71,11 @@ class AppMenu(ModalScreen):
         "f", "File", [
             ["new_file", "New", "n"],
             ["open_file", "Open...", "o"],
-            ["save_file", "Save", "s", "ctrl+s"],
+            ["save_file", "Save", "s"],
             ["save_file_as", "Save As...", "a"],
             "-",
-            ["quit", "Quit", "q", "ctrl+q"]
+            ["quit", "Quit", "q"],
+            ["suspend_process", "Suspend", "u"]
         ]
     ]
     menus["edit"] = [
@@ -75,9 +94,10 @@ class AppMenu(ModalScreen):
             ["toggle_line_numbers", "Toggle Line Numbers", "l"],
             "-",
             ["change_file_type", "File type...", "y"],
+            ["toggle_soft_wrap", "Toggle soft wrap...", "s"],
 
             # This seems to be broken up stream
-            # ["set_indent_type", "Set Indent Type...", "n"],
+            ["set_indent_type", "Set Indent Type...", "n"],
             ["set_indent_width", "Set Indent Width...", "i"],
         ]
     ]
@@ -112,11 +132,13 @@ class AppMenu(ModalScreen):
                                 continue
                             elif len(item) == 3:
                                 command, item_label, item_hotkey = item
-                                item_binding = None
-                            elif len(item) == 4:
-                                command, item_label, item_hotkey, item_binding = item
                             else:
                                 raise ValueError(f"Invalid menu item: {item}")
+
+                            if config.settings.has_option('shortcuts', command):
+                                item_binding = config.settings.get('shortcuts', command)
+                            else:
+                                item_binding = None
 
                             if item_hotkey and item_hotkey in self.menu_hotkeys:
                                 raise Exception(f"Hotkey {item_hotkey} already in use by menu")
@@ -128,17 +150,14 @@ class AppMenu(ModalScreen):
                             if item_binding:
                                 table.add_row(f"[bold]{item_hotkey}:[/] {item_label}", f'[yellow]{item_binding}[/]')
                             else:
-                                table.add_row(f"[bold]{item_hotkey}:[/] {item_label}")
+                                table.add_row(f"[bold]{item_hotkey}:[/] {item_label}", "")
 
-                            # options.append(Option(table, id=f"option-{command}"))
                             options.append(Option(table, id=f"option-{command}"))
 
                         yield OptionList(
                             *options,
                             id=f"{menu_id}-list")
 
-            with Horizontal(id="toolstrip"):
-                pass
             yield Footer()
 
     def _on_mount(self, event: events.Mount) -> None:
@@ -151,13 +170,13 @@ class AppMenu(ModalScreen):
 
     @on(TabbedContent.TabActivated)
     def on_tab_pane_tab_activated(self, event) -> None:
-        self.query_one(f"#{event.tab.id}-list").focus()
+        self.query_one(f"#{event.pane.id}-list").focus()
 
     def on_key(self, event: events.Key) -> None:
         if event.key == "left":
-            self.query_one("#tabber").get_child_by_type(Tabs).action_previous_tab()
+            self.query_one("#tabber").get_child_by_type(ContentTabs).action_previous_tab()
         elif event.key == "right":
-            self.query_one("#tabber").get_child_by_type(Tabs).action_next_tab()
+            self.query_one("#tabber").get_child_by_type(ContentTabs).action_next_tab()
         elif event.key in self.menu_hotkeys:
             pass
         else:

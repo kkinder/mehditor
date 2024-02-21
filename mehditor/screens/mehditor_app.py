@@ -1,12 +1,11 @@
-from collections import deque
 from pathlib import Path
 
 from textual import on
 from textual.app import App, ComposeResult
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.validation import Function
-from textual.widgets import Header, Input, Footer, TextArea
+from textual.widgets import Header, Input, Footer
+from textual.widgets._text_area import ThemeDoesNotExist
 
 from mehditor import config
 from mehditor.app_commands import AppCommands
@@ -19,14 +18,13 @@ from mehditor.screens.file_save import FileSave
 from mehditor.screens.input_prompt import InputPrompt
 from mehditor.screens.quit_screen import QuitScreen
 from mehditor.screens.shortcuts import Shortcuts
-from mehditor.validators import is_line_number
+from mehditor.validators import LineNumber
 from mehditor.widgets.better_text_area import BetterTextArea
 
 known_dark_themes = {
     "monokai",
     "dracula",
     "vscode_dark",
-    None
 }
 
 known_light_themes = {
@@ -40,7 +38,8 @@ class MeheditorApp(App):
         config.generate_binding("quit"),
         config.generate_binding("save_file"),
         config.generate_binding("new_file"),
-        config.generate_binding("goto_line")
+        config.generate_binding("goto_line"),
+        config.generate_binding("suspend_process"),
     ]
 
     COMMANDS = {AppCommands}
@@ -49,9 +48,13 @@ class MeheditorApp(App):
     .hidden {
         display: none;
     }
+    #text-buffer {
+        border: none;
+    }
     """
 
     show_line_numbers = reactive(True)
+    soft_wrap = reactive(False)
     indent_type = reactive("spaces")
     indent_width = reactive(4)
     theme = reactive("default")
@@ -68,9 +71,14 @@ class MeheditorApp(App):
     def on_mount(self):
         self.indent_type = config.settings['editing']['indent_type']
         self.indent_width = config.settings.getint('editing', 'indent_width')
-        self.theme = config.settings['editing']['theme']
+
+        try:
+            self.theme = config.settings['editing']['theme']
+        except ThemeDoesNotExist:
+            self.notify(f"Configured theme not available: {config.settings['editing']['theme']}", severity="error")
         self.dark = config.settings.getboolean('editing', 'dark_mode')
         self.show_line_numbers = config.settings.getboolean('editing', 'show_line_numbers')
+        self.soft_wrap = config.settings.getboolean('editing', 'soft_wrap')
 
         if self.initial_file:
             self.open_file(self.initial_file)
@@ -83,7 +91,7 @@ class MeheditorApp(App):
     #################################################################
     def new_file(self):
         self.query_one("#text-buffer").load_text("")
-        self.reset_undo_log()
+        self.query_one("#text-buffer").history.clear()
         self.file = None
         self.title = '(Untitled)'
         self.file_unsaved = False
@@ -100,14 +108,10 @@ class MeheditorApp(App):
             text = ''
 
         self.query_one("#text-buffer").load_text(text)
-        self.reset_undo_log()
+        self.query_one("#text-buffer").history.clear()
         self.file = Path(file).resolve() if file else None
         self.title = self.file.name
         self.file_unsaved = False
-
-    def reset_undo_log(self):
-        self.undo_log = deque(maxlen=100)
-        self.redo_log = deque(maxlen=100)
 
     def save_settings(self):
         config.settings['editing']['indent_type'] = self.indent_type
@@ -115,13 +119,14 @@ class MeheditorApp(App):
         config.settings['editing']['theme'] = self.theme
         config.settings['editing']['dark_mode'] = 'Yes' if self.dark else 'No'
         config.settings['editing']['show_line_numbers'] = 'Yes' if self.show_line_numbers else 'No'
+        config.settings['editing']['soft_wrap'] = 'Yes' if self.soft_wrap else 'No'
         config.save()
 
     #################################################################
     ## Watchers                                                    ##
     #################################################################
-    def watch_theme(self):
-        self.query_one("#text-buffer").theme = self.theme if self.theme not in (None, "default") else None
+    def watch_theme(self, theme):
+        self.query_one("#text-buffer").theme = theme if theme not in (None, "default") else "css"
 
     def watch_dark(self, *args):
         super().watch_dark(*args)
@@ -138,6 +143,9 @@ class MeheditorApp(App):
 
     def watch_show_line_numbers(self):
         self.query_one("#text-buffer").show_line_numbers = self.show_line_numbers
+
+    def watch_soft_wrap(self):
+        self.query_one("#text-buffer").soft_wrap = self.soft_wrap
 
     def watch_file_type(self):
         if self.file_type == "text":
@@ -173,29 +181,27 @@ class MeheditorApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
 
-        yield BetterTextArea("", language=None, id="text-buffer")
+        yield BetterTextArea("", language=None, id="text-buffer", tab_behavior="indent")
         yield Input(
             id="line_number",
             placeholder="Go to line number (eg 10:3 for line 10, col 3)",
             validate_on=["changed"],
-            validators=[
-                Function(is_line_number, "Must be a line number (with optional column); eg 10:3 for line 10, col 3"),
-            ])
+            validators=[LineNumber()])
         yield Footer()
 
     def action_cut(self):
-        tb: TextArea = self.query_one("#text-buffer")
+        tb: BetterTextArea = self.query_one("#text-buffer")
         self.clipboard = tb.selected_text
         tb.replace("", tb.selection.start, tb.selection.end)
 
     def action_copy(self):
-        tb: TextArea = self.query_one("#text-buffer")
+        tb: BetterTextArea = self.query_one("#text-buffer")
         if tb.selected_text:
             self.clipboard = tb.selected_text
 
     def action_paste(self):
         if self.clipboard:
-            tb: TextArea = self.query_one("#text-buffer")
+            tb: BetterTextArea = self.query_one("#text-buffer")
             tb.replace(self.clipboard, tb.selection.start, tb.selection.end)
         else:
             self.notify("Nothing to paste", severity="error")
@@ -212,25 +218,10 @@ class MeheditorApp(App):
         self.show_line_finder = True
 
     def action_undo_change(self):
-        if len(self.undo_log) > 1:
-            w: TextArea = self.query_one("#text-buffer")
-
-            self.redo_log.append(self.undo_log.pop())
-            text, pos = self.undo_log.pop()
-            w.load_text(text)
-            w.move_cursor(pos)
-        else:
-            self.notify(f'Nothing more to undo', severity="error")
+        self.query_one("#text-buffer").undo()
 
     def action_redo_change(self):
-        if self.redo_log:
-            w: TextArea = self.query_one("#text-buffer")
-            text, pos = self.redo_log.pop()
-            self.undo_log.append((text, pos))
-            w.load_text(text)
-            w.move_cursor(pos)
-        else:
-            self.notify(f'Nothing more to redo', severity="error")
+        self.query_one("#text-buffer").redo()
 
     def action_menu(self):
         if self.show_line_finder:
@@ -312,6 +303,10 @@ class MeheditorApp(App):
         self.show_line_numbers = not self.show_line_numbers
         self.save_settings()
 
+    def action_toggle_soft_wrap(self):
+        self.soft_wrap = not self.soft_wrap
+        self.save_settings()
+
     def action_set_indent_width(self):
         def check_result(result):
             try:
@@ -342,7 +337,6 @@ class MeheditorApp(App):
             ),
             check_result)
 
-
     def action_quit(self) -> None:
         if not self.file_unsaved:
             return self.exit()
@@ -367,6 +361,8 @@ class MeheditorApp(App):
                 self.exit()
             elif result == "cancel":
                 pass
+            elif result == "suspend":
+                self.action_suspend_process()
             else:
                 self.notify(f"Unknown result: {result}", severity="error")
 
@@ -378,7 +374,7 @@ class MeheditorApp(App):
     @on(Input.Submitted, "#line_number")
     def on_line_number_submitted(self, event):
         linenumber = event.value
-        if is_line_number(linenumber):
+        if LineNumber().validate(linenumber).is_valid:
             if ':' in linenumber:
                 line, col = linenumber.split(':', 1)
                 line = int(line) - 1
@@ -392,11 +388,6 @@ class MeheditorApp(App):
         else:
             self.notify(f'Not a valid line number', severity="error")
 
-    @on(TextArea.Changed, "#text-buffer")
+    @on(BetterTextArea.Changed, "#text-buffer")
     def on_text_buffer_changed(self, event):
         self.file_unsaved = True
-        self.undo_log.append(
-            (self.query_one("#text-buffer").text, self.query_one("#text-buffer").cursor_location)
-        )
-
-    #
