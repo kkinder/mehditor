@@ -1,7 +1,7 @@
 # Modern but simple text editor
 
 Mehditor is a modern but simple text editor. I made it because I needed a quick editor (like Pico or Nano) on servers,
-but wanted a more modern and friendly itnerface. Meditor is written in Python and uses the excellent
+but wanted a more modern and friendly interface. Meditor is written in Python and uses the excellent
  [Textual](https://textual.textualize.io) for its user interface. I wrote it in a weekend.
 
 ![Mehditor screenshot showing application in terminal window](https://github.com/kkinder/mehditor/blob/main/screenshots/meh-1.png)
