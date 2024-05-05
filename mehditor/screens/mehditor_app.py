@@ -1,7 +1,9 @@
+import functools
 from pathlib import Path
 
 from textual import on
 from textual.app import App, ComposeResult
+from textual.notifications import Notification
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import Header, Input, Footer
@@ -30,6 +32,20 @@ known_dark_themes = {
 known_light_themes = {
     "github_light"
 }
+
+
+def handle_os_error_decorator(error_message, severity="error", timeout=Notification.timeout):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except OSError as e:
+                self.notify(title=error_message, message=str(e), severity=severity, timeout=timeout)
+
+        return wrapper
+
+    return decorator
 
 
 class MeheditorApp(App):
@@ -96,6 +112,7 @@ class MeheditorApp(App):
         self.title = '(Untitled)'
         self.file_unsaved = False
 
+    @handle_os_error_decorator("Error Opening File")
     def open_file(self, file):
         file = Path(file)
         if file.exists():
@@ -113,6 +130,7 @@ class MeheditorApp(App):
         self.title = self.file.name
         self.file_unsaved = False
 
+    @handle_os_error_decorator("Error Saving Settings")
     def save_settings(self):
         config.settings['editing']['indent_type'] = self.indent_type
         config.settings['editing']['indent_width'] = str(self.indent_width)
@@ -206,7 +224,9 @@ class MeheditorApp(App):
         else:
             self.notify("Nothing to paste", severity="error")
 
+    @handle_os_error_decorator("Error Saving File")
     def action_save_file(self) -> None:
+
         if self.file:
             self.file.write_text(self.query_one("#text-buffer").text)
             self.file_unsaved = False
@@ -322,12 +342,10 @@ class MeheditorApp(App):
             ),
             check_result)
 
-
     def action_change_theme(self):
         def check_result(result):
             self.theme = result
             self.save_settings()
-
 
         self.push_screen(
             Chooser(
