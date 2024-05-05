@@ -8,7 +8,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-textual = {extras = ["syntax"], version = "^0.52.1"}
+textual = {extras = ["syntax"], version = "^0.58.0"}
 
 [tool.poetry.group.dev.dependencies]
 textual-dev = "^1.5.1"
